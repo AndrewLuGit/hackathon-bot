@@ -8,6 +8,8 @@ var app = express();
 app.use(bodyParser.json());
 app.use(express.static('images'));
 const config = require("./config.json");
+const { ToadScheduler, SimpleIntervalJob, Task } = require('toad-scheduler')
+const scheduler = new ToadScheduler()
 
 // init framework
 var framework = new framework(config);
@@ -130,6 +132,28 @@ framework.hears("say hi to everyone", function (bot) {
     });
 });
 
+framework.hears("periodic message start", function(bot, trigger) {
+  console.log("user triggered start of periodic messages");
+  responded = true;
+  let messageTask = new Task(
+    `periodic message to ${trigger.person.displayName}`,
+    () => bot.say('Here is your scheduled message')
+  )
+  let messageJob = new SimpleIntervalJob(
+    { minutes: 1}, 
+    messageTask,
+    `periodic messageTask to ${trigger.personId}`)
+  scheduler.addSimpleIntervalJob(messageJob)
+  bot.say('Starting periodic messages')
+});
+
+framework.hears("periodic message stop", function(bot, trigger) {
+  console.log("user triggered stop of periodic messages");
+  responded = true;
+  scheduler.removeById(`periodic messageTask to ${trigger.personId}`)
+  bot.say('Stopping periodic messages')
+});
+
 // Buttons & Cards data
 let cardJSON =
 {
@@ -242,6 +266,7 @@ var server = app.listen(config.port, function () {
 process.on('SIGINT', function () {
   framework.debug('stoppping...');
   server.close();
+  scheduler.stop();
   framework.stop().then(function () {
     process.exit();
   });
