@@ -132,26 +132,33 @@ framework.hears("say hi to everyone", function (bot) {
     });
 });
 
-framework.hears("periodic message start", function(bot, trigger) {
+framework.hears(/break message start/, function(bot, trigger) {
   console.log("user triggered start of periodic messages");
   responded = true;
-  let messageTask = new Task(
-    `periodic message to ${trigger.person.displayName}`,
-    () => bot.say('Here is your scheduled message')
-  )
-  let messageJob = new SimpleIntervalJob(
-    { minutes: 1}, 
-    messageTask,
-    `periodic messageTask to ${trigger.personId}`)
-  scheduler.addSimpleIntervalJob(messageJob)
-  bot.say('Starting periodic messages')
+  let message = trigger.text
+  let duration = parseInt(message.slice(19))
+  if (duration != NaN) {
+    scheduler.removeById(`periodic messageTask to ${trigger.personId}`)
+    let messageTask = new Task(
+      `periodic message to ${trigger.person.displayName}`,
+      () => bot.say('Time to take a break!')
+    )
+    let messageJob = new SimpleIntervalJob(
+      { minutes: duration}, 
+      messageTask,
+      `periodic messageTask to ${trigger.personId}`)
+    scheduler.addSimpleIntervalJob(messageJob)
+    bot.say(`Will remind you to take a break every ${duration} minutes`)
+  } else {
+    bot.say('Invalid argument!')
+  }
 });
 
-framework.hears("periodic message stop", function(bot, trigger) {
+framework.hears("break message stop", function(bot, trigger) {
   console.log("user triggered stop of periodic messages");
   responded = true;
   scheduler.removeById(`periodic messageTask to ${trigger.personId}`)
-  bot.say('Stopping periodic messages')
+  bot.say('Stopping break reminders')
 });
 
 // Buttons & Cards data
