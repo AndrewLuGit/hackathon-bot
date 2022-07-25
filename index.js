@@ -136,8 +136,8 @@ framework.hears(/break message start/, function(bot, trigger) {
   console.log("user triggered start of periodic messages");
   responded = true;
   let message = trigger.text
-  let duration = parseInt(message.slice(19))
-  if (duration != NaN) {
+  let duration = parseInt(message.match(/\d+/g))
+  if (Number.isInteger(duration)) {
     scheduler.removeById(`periodic messageTask to ${trigger.personId}`)
     let messageTask = new Task(
       `periodic message to ${trigger.person.displayName}`,
