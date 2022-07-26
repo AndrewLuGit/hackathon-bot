@@ -11,6 +11,8 @@ const config = require("./config.json");
 const { ToadScheduler, SimpleIntervalJob, Task } = require('toad-scheduler')
 const scheduler = new ToadScheduler()
 
+var data = {}
+
 // init framework
 var framework = new framework(config);
 framework.start();
@@ -141,7 +143,7 @@ framework.hears(/break message start/, function(bot, trigger) {
     scheduler.removeById(`periodic messageTask to ${trigger.personId}`)
     let messageTask = new Task(
       `periodic message to ${trigger.person.displayName}`,
-      () => bot.say('Time to take a break!')
+      () => sendBreakMessage(bot, trigger.personId)
     )
     let messageJob = new SimpleIntervalJob(
       { minutes: duration}, 
@@ -153,6 +155,23 @@ framework.hears(/break message start/, function(bot, trigger) {
     bot.say('Invalid argument!')
   }
 });
+
+function sendBreakMessage(bot, personId) {
+  if (!(personId in data)) {
+    data[personId] = 'defaultbreak'
+  }
+  switch(data[personId]) {
+    case 'meditation':
+      bot.say('Time for some mediation!')
+      break
+    case 'screenbreak':
+      bot.say('Time to take a screen break!')
+      break
+    case 'defaultbreak':
+      bot.say('Time to take a break!')
+      break
+  }
+}
 
 framework.hears("break message stop", function(bot, trigger) {
   console.log("user triggered stop of periodic messages");
@@ -201,6 +220,79 @@ let cardJSON =
     }]
 };
 
+let breakCard = 
+{
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.2",
+  "body": [
+      {
+          "type": "ColumnSet",
+          "columns": [
+              {
+                  "type": "Column",
+                  "width": 2,
+                  "items": [
+                      {
+                          "type": "TextBlock",
+                          "text": "Quick Check-In",
+                          "weight": "bolder",
+                          "size": "medium"
+                      },
+                      {
+                          "type": "TextBlock",
+                          "isSubtle": true,
+                          "wrap": true,
+                          "text": "Reflect on your day so far."
+                      },
+                      {
+                          "type": "TextBlock",
+                          "wrap": true,
+                          "text": "How are you feeling right now?"
+                      },
+                      {
+                          "type": "Input.ChoiceSet",
+                          "id": "reminderType",
+                          "choices": [
+                              {
+                                  "title": "Feeling a bit stressed",
+                                  "value": "meditation"
+                              },
+                              {
+                                  "title": "Have a bit of a headache",
+                                  "value": "screenbreak"
+                              },
+                              {
+                                  "title": "Feeling fine",
+                                  "value": "defaultbreak"
+                              }
+                          ],
+                          "placeholder": "Feeling fine",
+                          "value": "defaultbreak"
+                      }
+                  ]
+              },
+              {
+                  "type": "Column",
+                  "width": 1,
+                  "items": [
+                      {
+                          "type": "Image",
+                          "url": "https://i.postimg.cc/wMJvqNR6/sign-up.jpg"
+                      }
+                  ]
+              }
+          ]
+      }
+  ],
+  "actions": [
+      {
+          "type": "Action.Submit",
+          "title": "Submit"
+      }
+  ]
+}
+
 /* On mention with card example
 ex User enters @botname 'card me' phrase, the bot will produce a personalized card - https://developer.webex.com/docs/api/guides/cards
 */
@@ -214,6 +306,44 @@ framework.hears('card me', function (bot, trigger) {
   cardJSON.body[0].columns[0].items[2].text = trigger.person.emails[0];
   bot.sendCard(cardJSON, 'This is customizable fallback text for clients that do not support buttons & cards');
 });
+
+framework.hears('checkin', function (bot) {
+  console.log("someone is doing a check-in")
+  responded = true;
+
+  bot.sendCard(breakCard, 'This feature is not supported')
+})
+
+framework.on('attachmentAction', function (bot, trigger) {
+  //console.log(trigger.attachmentAction)
+  var reply = ""
+  if (Object.keys(trigger.attachmentAction.inputs).length != 0) {
+    reminderType = trigger.attachmentAction.inputs.reminderType
+    data[trigger.personId] = reminderType
+    switch (reminderType) {
+      case "meditation":
+        reply = "If you're feeling stressed, you can do some meditation to help yourself relax."
+        break
+      case "screenbreak":
+        reply = "You might have been focusing on your screen for too long. Take a screen break every once in a while."
+        break
+      case "defaultbreak":
+        reply = "Good to know you're doing well! However, you should still remember to take a break from time to time."
+        break
+    }
+  } else {
+    data[trigger.personId] = 'defaultbreak'
+    reply = "Good to know you're doing well! However, you should still remember to take a break from time to time."
+  }
+  bot.reply(trigger.attachmentAction, reply)
+})
+
+framework.hears('datadebug', function (bot, trigger) {
+  console.log(data)
+  responded = true
+
+  bot.reply(trigger.message, 'data sent to console')
+})
 
 /* On mention reply example
 ex User enters @botname 'reply' phrase, the bot will post a threaded reply
